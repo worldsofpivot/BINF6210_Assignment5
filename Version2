@@ -1,0 +1,224 @@
+#### 1. Introduction ####
+
+#Amphibians are vertebrate animals that belong to the Amphibia class. Amphibians are all cold-blooded, and all amphibians spend a portion of their lives in water and another portion of their lives on land (Leach & Eric, 2000). Because of their semi-aquatic lifestyles, all are born with gills—though some lose this feature in later stages of their lives (Leach & Eric, 2000).  There are three general classes of amphibians—those with legs and tails, those with legs but no tails, and finally those with tails but no legs (Leach & Eric, 2000).  In this project, I would like to focus my research on amphibians and the relatedness of their traits.  Specifically, I aim to see whether there is a correlation between body size and litter size in different genera of amphibians.
+
+#I believe this to be an important area of research for a number of reasons. Mainly, understanding reproductive patterns of animals is crucial in the area of conservation.  As recently as 4000 years ago, giant woolly mammoths roamed the Earth—and yet their species went extinct.  One theory to explain their extinction suggests that mammoths, like other large mammals, bred at a rate of just a few offspring per herd per year. If this was the case, humans that lived in areas inhabited by mammoths would only need to hunt a few mammoths a year, and that would be enough to cause extinction of the entire species in a matter of a few generations (Harari, 2017).  So, it becomes clear that we should be pay attention to the reproductive patterns of different species.  What’s more, is that amphibians are the class of animals that are under the biggest threat in nature (Klaus & Lougheed, 2013).  Since the 1980s, there has been a rapid decline in amphibian populations globally (Quaranta et al., 2009).  Because of this, we should be especially careful with how we interact with amphibians and their environment.  To investigate the relatedness between an amphibian’s body size and litter size, I will conduct statistical tests, including the Spearman, Kendall, and Person correlation formulas. In addition, I will create and analyze scatterplots that visualize the relation between these traits.
+
+#### 2. Description of Data ####
+
+#The dataset I will use is known as “AmphiBIO”, which is a global database containing amphibian trait data (Oliveira et al., 2017).  This dataset is part of the Open Traits Network—a public database that aims to integrate trait data for all organisms.  The traits that are recorded in this data set are related to the morphology, ecology, and reproductive traits of amphibians.  Some of the traits include habitat, diet, circadian rhythm, body length, size at maturity, longevity, litter size, reproductive output, and offspring size.  The dataset included observation from 6777 specimens.  Interestingly, almost all the ecological traits are left blank, including all those related to seasonality, breeding strategy and diet.  Most of the data that wasn’t blank related to the morphology of the organisms and their offspring (such as body size, offspring size, and litter size). This was not an issue, as I am only really interested in three traits—body size, the maximum litter size, and minimum litter size.  I obtained the data on December 14th, 2021 by first downloading the dataset directly from https://doi.org/10.6084/m9.figshare.4644424 and then I imported it to R studio using the read_csv function.  Aside from the three traits I was interested in, I also kept the genus name, because I wanted to group the dataframe by genus.
+
+
+#### 3. Data Acquisition ####
+
+#The first thing I will do is import all the packages I need for this project
+library("tidyverse")
+library("ggplot2")
+
+
+#download, read, and write the file from the Amphibio website to working memory
+#df <- read_tsv(file = "https://doi.org/10.6084/m9.figshare.4644424")
+#write_tsv(df, "Cnidaria_BOLD_data.tsv")
+setwd("C:/Users/Badder Jamali/Documents")
+dframe <- read_csv(file = "AmphiBIO_data.csv")
+
+
+#### Checking The Data ####
+head(dframe)
+
+#creating a backup of the dataframe before I do any data filtering
+df_backup = dframe
+
+#Counting number of genuses in the dataset. 531 unique genera
+length(unique(dframe$Genus))
+
+
+#summary of the traits I am interested in. The mean and median values of both litter size columns are quite separate, indicating the data is going to be right-skewed. The mean and median values are closer for the "Body_size_mm" column, so I expect it to be closer to normal distribution
+summary(dframe$Litter_size_min_n)
+summary(dframe$Litter_size_max_n)
+summary(dframe$Body_size_mm)
+
+#Setting margins for my histogram plot
+par(mar=c(4,4,2,2))
+
+hist(dframe$Body_size_mm, main = "Figure 1: Amphibian Body Size Histogram", xlab = "Body Size Range (mm)",col = "#0870CB",border = "#D20338",
+     breaks = 20)
+
+hist(dframe$Litter_size_min_n, main = "Amphibian Min Litter Size Histogram", xlab = "Litter Size Range (min)",col = "#FE9B0A",border = "#D20338",
+     breaks = 20)
+
+
+#It is clear from these histograms that the visibility of the data is being obscured by values in the higher end for both body size and litter size. I will recreate the same histograms but will put x-value limits in place
+
+hist(dframe$Body_size_mm, main = "Figure 2: Amphibian Body Size Histogram with x-axis Limit", xlab = "Body Size Range (mm)",col = "#0870CB",border = "#352e2e", xlim = c(0,1000),
+     breaks = 200)
+
+hist(dframe$Litter_size_min_n, main = "Figure 3: Amphibian Min Litter Size Histogram with x-axis Limit", xlab = "Litter Size Range (min)",col = "#04B390",border = "#352e2e", xlim = c(0,300),
+     breaks = 2000)
+
+#Applying an upper limit to the x-values makes the distribution of values much more clear. The data is definitely right-skewed. I will filter the actual dataframe to have the same upper limits as the x-lim set above
+
+#One more check to see a list of genuses in descending order
+dframe %>% count(Genus) %>% arrange(desc(n))
+
+
+#### Data Filtering ####
+
+#basic filtering to remove NAs of traits I'm interested in. I will also use the mutate function to create a column called "Litter_size_average" that will calculate the mean litter size of each species based on their minimum and maximum litter size
+
+dframe_small <- dframe %>%
+  group_by(Genus) %>% 
+  select(Genus, Body_size_mm, Litter_size_min_n,Litter_size_max_n) %>% 
+  filter(!is.na(Body_size_mm)) %>%
+  filter(!is.na(Litter_size_min_n)) %>%
+  filter(!is.na(Litter_size_max_n)) %>%
+  rowwise() %>% 
+  mutate(Litter_size_average = mean(Litter_size_max_n:Litter_size_min_n)) %>% 
+  print()
+
+#I will create another dataframe called dframe_large that will be used later
+
+dframe_large <- dframe
+
+#create a list of the genera with the highest occurences. I will filter dframe_small to include only those top 6 genera. When comparing to the most common genera before filtering out NAs, the only genuses that appear in both of the "top 6 lists" are Litoria and Eleutherodactylus.
+dframe_small %>% count(Genus) %>% arrange(desc(n))
+
+dframe_small <- dframe_small %>% 
+  filter(grepl('Litoria|Eleutherodactylus|Hypsiboas|Leptodactylus|Rana|Dendropsophus', Genus)) %>% 
+  filter(Body_size_mm <=300) %>% 
+  filter(Litter_size_average <=5000)
+
+
+#### 4. Main Software Tools Description  ####
+
+
+#The main software tool I used to examine my data was the correlation test function “cor.test” which is built into base R.  This function conducts one of three tests—Pearson’s product moment correlation coefficient, Kendall’s tau, or Spearman’s rho.  I chose to use this function because finding the correlation coefficient and the p-value for the data is a standard statistical approach to determine whether to reject the null hypothesis and to assume correlation between two variables.  To visualize the data, I will use ggplot2 to create a scatterplot (Wickham , 2016).  Again, I chose to create a scatterplot because it is the simplest and most effective way to tell visually whether or not two traits are correlated. I contemplated using a correlogram, as it is a little less played out than a scatterplot, but I decided against it because a relationship between variables can be seen with a scatter plot immediately.  I also could have used the plot function built into R, but I like the extra customizability ggplot gives, and the results are visually more appealing.
+
+
+#### 5. Main Coding Analysis ####
+#Creating a scatter plot to visualize the data using a custom colour palette designed to be readable for people with colour blindness
+
+ggplot(dframe_small, aes(x=Body_size_mm, y=Litter_size_average, shape = Genus, color=Genus)) +
+  geom_point(size=2, shape=23) +
+  ggtitle("Figure 4: Plot of Body Size (Up to 300mm) VS Litter Size For Top 6 Genera of Amphibians") +
+  xlab("Body Size (mm)") + ylab("Litter Size") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_smooth(method=lm) + 
+  xlim(1, 300) +
+  ylim(1, 5000) + scale_color_manual(values = c("#8C2BAD", "#0870CB", "#04B390", "#F3DB04","#FE9B0A" ,"#D20338"))
+
+
+
+#Visually, all the regression lines have a positive slope, although the genus "Eleutherodactylus" is ambiguous.  So, I will create a plot with just the genus Eleutherodactylus to be sure
+
+dframe_Eleutherodactylus <- dframe_small %>%
+  filter(grepl("Eleutherodactylus", Genus))
+
+ggplot(dframe_Eleutherodactylus, aes(x=Body_size_mm, y=Litter_size_average, shape = Genus, color=Genus)) +
+  ggtitle("Figure 5: Plot of Body Size (Up to 300mm) VS Litter Size in Eleutherodactylus Genus of Amphibians") +
+  xlab("Body Size (mm)") + ylab("Litter Size") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_point(size=2, shape=23) +
+  geom_smooth(method=lm) + scale_color_manual(values = c("#0870CB"))
+
+#The positive slope of the regression line is much clearer when only looking at Eleutherodactylus.
+
+
+#Next, I will use the Pearson-correlation test to see whether or not there is a relationship between body size and average litter size
+
+Pearson_results <- cor.test(dframe_small$Body_size_mm, dframe_small$Litter_size_average, 
+                method = "pearson")
+Pearson_results
+
+#The results show a p-value of 2.2 *10^-16 which is smaller than the significance level alpha (0.05) and also the correlation coefficient is 0.61. Together, these results indicate significant positive correlation between Body size and average litter size. To be sure, let's conduct the Kendall and Spearman tests as well
+
+
+Kendall_results <- cor.test(dframe_small$Body_size_mm, dframe_small$Litter_size_average, 
+                            method = "kendall")
+Kendall_results
+
+#The result of tau (correlation coefficient) is 0.51, which still indicates that there is a positive correlation between body size and average litter size. Finally, let's do the Spearman rank correlation coefficient
+
+Spearman_results <- cor.test(dframe_small$Body_size_mm, dframe_small$Litter_size_average, 
+                            method = "spearman", exact=FALSE)
+Spearman_results
+
+#In the Spearman test, rho (correlation coefficient) was 0.70. This again points to a significant positive correlation. Because all three tests pointed to a positive correlation, we can reject the null hypothesis and assume a positive correlation between body size and litter size in amphibians.
+
+
+
+#Now, I am going to create a dataset that looks at body sizes above 300mm, which I previously filtered out. I would like to see if the statistical tests I did on the previous dataframe still give me similar results.
+
+dframe_large <- dframe %>% 
+  group_by(Genus) %>% 
+  select(Genus, Body_size_mm, Litter_size_min_n,Litter_size_max_n) %>% 
+  filter(!is.na(Body_size_mm)) %>%
+  filter(!is.na(Litter_size_min_n)) %>%
+  filter(!is.na(Litter_size_max_n)) %>%
+  filter(Body_size_mm >300) %>% 
+  rowwise() %>% 
+  mutate(Litter_size_average = mean(Litter_size_max_n:Litter_size_min_n)) %>% 
+  mutate(colour="#D20338")
+
+#plotting the data
+ggplot(dframe_large, aes(x=Body_size_mm, y=Litter_size_average, color=colour)) +
+  ggtitle("Figure 6: Plot of Body Size (Over 300mm) VS Litter Size in Amphibians") +
+  xlab("Body Size (mm)") + ylab("Litter Size") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_point(size=2, shape=23) +
+  geom_smooth(method=lm) + scale_color_manual(values = c("#D20338"))  
+
+
+#Visually, the regression line looks almost horizontal.  This could partly be because of the outlier, Ambystoma tigrinum, which for its body size has a mean litter size much higher than any other specimen
+
+#Pearson, Kendall, and Spearman tests
+Pearson_results2 <- cor.test(dframe_large$Body_size_mm, dframe_large$Litter_size_average, 
+                            method = "pearson")
+Pearson_results2
+
+# Interestingly, the p-value is much higher than 0.05, which means we cannot reject the null hypothesis. Also, the correlation coefficient here is 0.04, which is very close to 0; signifying no correlation between body size and litter size
+
+Kendall_results2 <- cor.test(dframe_large$Body_size_mm, dframe_large$Litter_size_average, 
+                             method = "kendall", exact = FALSE)
+Kendall_results2
+
+Spearman_results2 <- cor.test(dframe_large$Body_size_mm, dframe_large$Litter_size_average, 
+                             method = "spearman", exact = FALSE)
+Spearman_results2
+
+# In the kendall and spearman tests, the p value was below the significance level of 5%, and the correlation coefficients were positive.  However, when compared to the results calculated for dframe_small, we can assume there is less of a correlation with this data.
+
+
+
+
+#### 6. Discussion ####
+
+#Based on the statistical analysis done on the AmphiBIO dataset, it is evident that there is indeed a positive correlation between the body size and litter size of amphibians—but that relationship may only exist within a certain range of body sizes.  Specifically, with body sizes under 300 mm, all the statistical tests pointed to a positive correlation.  I conducted the Pearson, Kendall, and Spearman tests and found that the p values were consistently below the significance level of 5%.  Because of this, we can confidently reject the null hypothesis, and say that the traits are indeed correlated.  The correlation coefficients found were 0.61, 0.51, and 0.70, respectively.  These correlation coefficients point to a significant positive correlation between body size and average litter size.  However, when looking at the data of amphibians with body sizes above 300mm, the data becomes more ambiguous.  When looking at Figure 6, “Plot of Body Size (Over 300mm) VS Litter Size in Amphibians”, the scatter plot shows a regression line that looks almost completely horizontal.  Upon further inspection, this may be because of Ambystoma tigrinum, a species which has a significantly higher litter size than other species of similar body sizes.  I could not find any sources in literature that mentioned the high litter size in this species, so I can only assume this is an outlier. If I had more time and continued this research, I would have redone my calculations and plot with Ambystoma tigrinum removed from the data.
+
+#The Pearson test on this data set uncovered a p-value of 0.84, which is much higher than the significance level of 5%.  Therefore, we cannot reject the null hypothesis. The correlation coefficient was found to be 0.04, which is very close to 0.  So, going by the Pearson coefficient, we could conclude that there is no correlation between body size and average litter size.  When doing the Kendall and Spearman tests, the p values were 6.79e-10 and 7.24e-10 and the correlation coefficients were 0.36 and 0.50, respectively.  These are lower than the significance level, so the null hypothesis can be rejected.  The correlation coefficients of this data set were also all smaller than the coefficients for the dataset of body sizes under 300mm.  This means that the correlation between body size and litter size is less significant in amphibians with body sizes over 300mm.  Interestingly, this is similar to literature done on mammals. Juha Tuomi found that in general, there is a positive correlation between body size and litter size in mammals under 300mm, and then a negative correlation for mammals above 300mm (Tuomi, 1980).  Based on the statistical tests, amphibians body size is strongly correlated to litter size for body sizes under 300mm. Over 300mm, and the correlation drops significantly, to the point that there may be no correlation.
+
+#One thing I learned during this project that I hadn’t thought about before, was the significance of breaking up analysis and results.  If I hadn’t read up on the literature, I would not have thought to separate my dataset into body sizes of under 300mm and those over 300mm. This in turn would have “watered down” the results. Especially in biology, it seems that relationships between traits is not universal, but rather they are a set of particulars.  Going forward, I will first visualize the data to see if there are any trends that seem to appear. If trends appear in certain ranges, I will break the data up into chunks and analyze each chunk separately, as well as analyze the data as a whole to make sure I am not missing anything.
+
+
+
+
+#### 7. Aknowledgements ####
+
+# When calculating the Spearman rank correlation test, I was getting a Warning message saying "Cannot compute exact p-value with ties" but a post on tutorialspoint.com directed me to include "exact = FALSE" at the end and the message went away. https://www.tutorialspoint.com/how-to-avoid-the-warning-cannot-compute-exact-p-value-with-ties-while-perform-correlation-test-for-spearman-s-correlation-in-r
+
+
+#Special thanks to Allie Ofisher, who wrote a great online article on how to choose colour palettes in data-science figures that can be readable even for those who have colour-blindness. I used her article to settle on a colour palette for my visualizations. The article can be read at  https://medium.com/cafe-pixo/inclusive-color-palettes-for-the-web-bbfe8cf2410e
+
+
+
+
+#### 8. References ####
+
+#Klaus, S. P., & Lougheed, S. C. (2013). Changes in breeding phenology of eastern Ontario frogs over four decades. Ecology and evolution, 3(4), 835–845. https://doi.org/10.1002/ece3.501
+#Harari, Y. N. (2016). Homo deus: A brief history of tomorrow.
+#Leach, Eric A., "All about amphibians: an environmental education curriculum for western Montana high schools" (2000). Graduate Student Theses, Dissertations, & Professional Papers. 6971. https://scholarworks.umt.edu/etd/6971 
+#Oliveira, B., São-Pedro, V., Santos-Barrera, G. et al. AmphiBIO, a global database for amphibian ecological traits. Sci Data 4, 170123 (2017). https://doi.org/10.1038/sdata.2017.123
+#Quaranta, A., Bellantuono, V., Cassano, G., & Lippe, C. (2009). Why amphibians are more sensitive than mammals to xenobiotics. PloS one, 4(11), e7699. https://doi.org/10.1371/journal.pone.0007699
+#Tuomi J. Mammalian reproductive strategies: a generalized relation of litter size to body size. Oecologia. 1980;45:39–44. doi: 10.1007/BF00346705
+#Wickham H (2016). ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York.
+
